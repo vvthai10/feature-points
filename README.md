@@ -10,6 +10,7 @@ And [SIFT](https://en.wikipedia.org/wiki/Scale-invariant_feature_transform), mat
 ## Libraries used
 
 [opencv](https://opencv.org/) I bulid algorithms with C++ and opencv
+You can setup opencv in Visual Studio here: https://www.youtube.com/watch?v=unSce_GPwto&pp=ygUcdXNlIG9wZW5jdiBpbiB2aXN1YWwgc3R1ZGlvIA%3D%3D
 
 ## Usage example
 
@@ -18,7 +19,7 @@ Find feature point and show result:
 **Use harris**
 
 ```bash
-20120579_BT03.exe <path_image> harris
+feature_points.exe <path_image> harris
 ```
 
 Result:
@@ -26,7 +27,7 @@ Result:
 **Use blob**
 
 ```bash
-20120579_BT03.exe <path_image> blob
+feature_points.exe <path_image> blob
 ```
 
 Result:
@@ -34,7 +35,7 @@ Result:
 **Use dog**
 
 ```bash
-20120579_BT03.exe <path_image> dob
+feature_points.exe <path_image> dob
 ```
 
 Result:
@@ -43,7 +44,7 @@ Match features in two images and show the result::
 **Use SIFT**
 
 ```bash
-20120579_BT03.exe <path_image_1> <path_image_2> sif <detector>
+feature_points.exe <path_image_1> <path_image_2> sif <detector>
 ```
 
 Parameter <detector>:

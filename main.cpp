@@ -7,10 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <filesystem>
-#include <sys/stat.h>
 
-namespace fs = std::filesystem;
 using namespace std;
 using namespace cv;
 
@@ -1521,48 +1518,39 @@ vector<Keypoint> HandleDetectBySift(const Mat& img, int detector) {
 	return final_kps;
 }
 
-// Hàm tính khoảng cách euclidean
-float EuclideanDistance(vector<float> des_a, vector<float> des_b)
-{
-	float dist = 0;
-	for (int i = 0; i < 128; i++) {
-		int di = (int)des_a[i] - des_b[i];
-		dist += di * di;
-	}
-	return sqrt(dist);
-}
-
 // Hàm kiểm tra các cặp điểm khớp với nhau
 vector<pair<int, int>> FindKeypointMatches(	const vector<Keypoint>& kps_a, const vector<Keypoint>& kps_b, int detector)
 {
-	vector<pair<int, int>> matches;
+	// Chuyển vector<Keypoint> sang Mat
+	Mat descriptors_a(kps_a.size(), 128, CV_32F), descriptor_b(kps_b.size(), 128, CV_32F);
 
 	for (int i = 0; i < kps_a.size(); i++) {
-		// Tìm 2 điểm gần nhất trong b với điểm a hiện tại
-		int idx = -1;
-		float nn1_dist = 100000000, nn2_dist = 100000000;
-		for (int j = 0; j < kps_b.size(); j++) {
-			float dist = EuclideanDistance(kps_a[i].descriptor, kps_b[j].descriptor);
-			if (dist < nn1_dist) {
-				nn2_dist = nn1_dist;
-				nn1_dist = dist;
-				idx = j;
-			}
-			else if (nn1_dist <= dist && dist < nn2_dist) {
-				nn2_dist = dist;
-			}
+		for (int j = 0; j < 128; j++) {
+			descriptors_a.at<float>(i, j) = kps_a[i].descriptor[j];
 		}
+	}
+	for (int i = 0; i < kps_b.size(); i++) {
+		for (int j = 0; j < 128; j++) {
+			descriptor_b.at<float>(i, j) = kps_b[i].descriptor[j];
+		}
+	}
 
-		float thresh_absolute = 350;
-		// Kiểm tra thỏa điều kiện mới thêm keypoint vào
-		if (detector == 0 && nn1_dist <  0.83 * nn2_dist) {
-			matches.push_back({ i, idx });
+	// Sử dụng KNN
+	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
+	std::vector< std::vector<DMatch> > knn_matches;
+	matcher->knnMatch(descriptors_a, descriptor_b, knn_matches, 3);
+
+	vector<pair<int, int>> matches;
+	for (size_t i = 0; i < knn_matches.size(); i++)
+	{
+		if (detector == 0 && knn_matches[i][0].distance < 0.83 * knn_matches[i][1].distance) {
+			matches.push_back({ knn_matches[i][0].queryIdx, knn_matches[i][0].trainIdx });
 		}
-		else if (detector == 1 && nn1_dist < 0.65 * nn2_dist) {
-			matches.push_back({ i, idx });
+		else if (detector == 1 && knn_matches[i][0].distance < 0.65 * knn_matches[i][1].distance) {
+			matches.push_back({ knn_matches[i][0].queryIdx, knn_matches[i][0].trainIdx });
 		}
-		else if (detector == 2 && nn1_dist < 0.5 * nn2_dist && nn1_dist < thresh_absolute) {
-			matches.push_back({ i, idx });
+		else if (detector == 2 && knn_matches[i][0].distance < 0.5 * knn_matches[i][1].distance) {
+			matches.push_back({ knn_matches[i][0].queryIdx, knn_matches[i][0].trainIdx });
 		}
 	}
 	return matches;
@@ -1613,6 +1601,7 @@ double matchBySIFT(const Mat& img1, const Mat& img2, int detector) {
 
 	cout << "The number of feature points of the image 1: " << kps_a.size() << endl;
 	cout << "The number of feature points of the image 2: " << kps_b.size() << endl;
+
 	vector<pair<int, int>> matches = FindKeypointMatches(kps_a, kps_b, detector);
 	cout << "Number of matches: " << matches.size() << endl;
 
@@ -1638,6 +1627,7 @@ double matchBySIFT(const Mat& img1, const Mat& img2, int detector) {
 // main
 // ----------------------------
 int main(int argc, char** argv) {
+
 	if (argc != 3 && argc != 5) {
 		cout << "Invalid input parameter.\n";
 		return 0;
@@ -1645,33 +1635,34 @@ int main(int argc, char** argv) {
 
 	// Sử dụng 3 thuật toán để xác định điểm đặc trưng
 	if (argc == 3) {
-		Mat img = imread(argv[2]);
+		Mat img = imread(argv[1]);
 		if (!img.data) {
 			cout << "Can't read image.\n";
 			return 0;
 		}
 
-		if (!strcmp(argv[1], "harris")) {
+		if (!strcmp(argv[2], "harris")) {
 			Mat res = detectHarris(img);
 			ShowImage(res, "Feature Points by Harris");
 		}
-		else if (!strcmp(argv[1], "blob")) {
+		else if (!strcmp(argv[2], "blob")) {
 			Mat res = detectBlob(img);
 			ShowImage(res, "Feature Points by Blob");
 		}
-		else if (!strcmp(argv[1], "dog")) {
+		else if (!strcmp(argv[2], "dog")) {
 			Mat res = detectDog(img);
 			ShowImage(res, "Feature Points by Dog");
 		}
 		
 	}
-	if (argc == 5 && !strcmp(argv[1], "sift")) {
-		Mat img_a = imread(argv[2]);
+	// Sử dụng thuật toán Sift
+	if (argc == 5 && !strcmp(argv[3], "sift")) {
+		Mat img_a = imread(argv[1]);
 		if (!img_a.data) {
 			cout << "Can't read image 1.\n";
 			return 0;
 		}
-		Mat img_b = imread(argv[3]);
+		Mat img_b = imread(argv[2]);
 		if (!img_b.data) {
 			cout << "Can't read image 2.\n";
 			return 0;
